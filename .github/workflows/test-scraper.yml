@@ -1,0 +1,109 @@
+name: Test Scraper
+
+on:
+  workflow_dispatch:  # Manual trigger for testing
+  push:
+    paths:
+      - 'scraper/**'
+      - '.github/workflows/test-scraper.yml'
+
+jobs:
+  test-scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: scraper/package-lock.json
+
+      - name: Install scraper dependencies
+        run: |
+          cd scraper
+          npm ci
+
+      - name: Install Playwright browser
+        run: |
+          cd scraper
+          npx playwright install --with-deps chromium
+
+      - name: Run scraper
+        run: |
+          cd scraper
+          node index.js
+
+      - name: Check output file
+        run: |
+          if [ -f frontend/public/data/courts.json ]; then
+            echo "✅ courts.json generated successfully!"
+            echo "File size: $(du -h frontend/public/data/courts.json | cut -f1)"
+            echo ""
+            echo "First 50 lines:"
+            head -50 frontend/public/data/courts.json
+          else
+            echo "❌ courts.json not found!"
+            exit 1
+          fi
+
+      - name: Validate JSON
+        run: |
+          node -e "
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('frontend/public/data/courts.json', 'utf8'));
+            console.log('✅ JSON is valid');
+            console.log('Courts found:', data.courts.length);
+            console.log('Last updated:', data.lastUpdated);
+
+            // Validate structure
+            if (!data.lastUpdated) throw new Error('Missing lastUpdated');
+            if (!Array.isArray(data.courts)) throw new Error('courts must be array');
+            if (data.courts.length === 0) throw new Error('No courts found');
+
+            // Check first court
+            const court = data.courts[0];
+            console.log('Sample court:', court.name);
+            console.log('Location:', court.location);
+            console.log('Dates scraped:', Object.keys(court.dates).length);
+
+            // Check slots
+            const firstDate = Object.keys(court.dates)[0];
+            if (firstDate) {
+              const slots = court.dates[firstDate].slots;
+              console.log('Slots on', firstDate + ':', slots.length);
+              console.log('Sample slots:', slots.slice(0, 3));
+            }
+          "
+
+      - name: Upload courts.json
+        uses: actions/upload-artifact@v4
+        with:
+          name: courts-data
+          path: frontend/public/data/courts.json
+          retention-days: 7
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "### Scraper Test Results" >> $GITHUB_STEP_SUMMARY
+          if [ -f frontend/public/data/courts.json ]; then
+            echo "✅ Scraper ran successfully" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Stats:**" >> $GITHUB_STEP_SUMMARY
+            node -e "
+              const fs = require('fs');
+              const data = JSON.parse(fs.readFileSync('frontend/public/data/courts.json', 'utf8'));
+              console.log('- Courts: ' + data.courts.length);
+              console.log('- Last Updated: ' + data.lastUpdated);
+              data.courts.forEach(c => {
+                const dateCount = Object.keys(c.dates).length;
+                console.log('- ' + c.name + ': ' + dateCount + ' dates');
+              });
+            " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Scraper failed" >> $GITHUB_STEP_SUMMARY
+          fi

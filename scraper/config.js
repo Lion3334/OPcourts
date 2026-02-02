@@ -1,6 +1,6 @@
 // Configuration for Ocean Park volleyball court scraper
 
-module.exports = {
+export default {
   // ActiveNet portal settings
   ACTIVE_NET_BASE_URL: 'https://anc.apm.activecommunities.com/santamonicarecreation/reservation/landing',
   SEARCH_URL: 'https://anc.apm.activecommunities.com/santamonicarecreation/reservation/landing/search',

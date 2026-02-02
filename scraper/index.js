@@ -1,8 +1,12 @@
-const { chromium } = require('playwright');
-const { format, addDays, parse } = require('date-fns');
-const fs = require('fs').promises;
-const path = require('path');
-const config = require('./config');
+import { chromium } from 'playwright';
+import { format, addDays, parse } from 'date-fns';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import config from './config.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Main scraper function
@@ -408,7 +412,7 @@ function formatHour(hour) {
 /**
  * Main entry point
  */
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   scrapeOceanParkCourts()
     .then(() => {
       console.log('✅ Scraping completed successfully!');
@@ -421,4 +425,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { scrapeOceanParkCourts };
+export { scrapeOceanParkCourts };

@@ -23,27 +23,25 @@ async function scrapeOceanParkCourts() {
     const page = await browser.newPage();
     page.setDefaultTimeout(config.TIMEOUT);
 
-    // Step 1: Discover courts
-    console.log('📋 Step 1: Discovering courts from search...');
-    const courts = await discoverCourts(page);
-    console.log(`✅ Found ${courts.length} courts:\n${courts.map(c => `   - ${c.name} (ID: ${c.id})`).join('\n')}\n`);
+    // Test with single court ID provided by user
+    const testCourts = [
+      { name: 'Ocean Park North - VB#10', id: '170' }
+    ];
 
-    if (courts.length === 0) {
-      throw new Error('No courts found matching criteria');
-    }
+    console.log('📋 Testing with court ID 170 (Ocean Park North - VB#10)\n');
 
-    // Step 2: Scrape each court's calendar
-    console.log('📅 Step 2: Scraping court calendars...');
+    // Scrape the test court's calendar
+    console.log('📅 Scraping court calendar...');
     const courtData = [];
 
-    for (const court of courts) {
+    for (const court of testCourts) {
       console.log(`   Scraping ${court.name}...`);
       const availability = await scrapeCourtCalendar(page, court);
       courtData.push(availability);
     }
 
-    // Step 3: Generate output JSON
-    console.log('\n💾 Step 3: Generating output JSON...');
+    // Generate output JSON
+    console.log('\n💾 Generating output JSON...');
     const output = {
       lastUpdated: new Date().toISOString(),
       courts: courtData
@@ -58,8 +56,16 @@ async function scrapeOceanParkCourts() {
     console.log(`✅ Data saved to ${outputPath}`);
     console.log(`\n📊 Summary:`);
     console.log(`   - Courts scraped: ${courtData.length}`);
-    console.log(`   - Total dates: ${config.DAYS_AHEAD}`);
+    console.log(`   - Dates with data: ${Object.keys(courtData[0]?.dates || {}).length}`);
     console.log(`   - Last updated: ${output.lastUpdated}\n`);
+
+    // Print sample data
+    if (courtData[0] && Object.keys(courtData[0].dates).length > 0) {
+      const firstDate = Object.keys(courtData[0].dates)[0];
+      const slots = courtData[0].dates[firstDate].slots;
+      console.log(`\n📋 Sample data for ${firstDate}:`);
+      console.log(`   ${slots.slice(0, 5).map(s => `${s.time}: ${s.status}`).join(', ')}...`);
+    }
 
     return output;
 
@@ -69,114 +75,27 @@ async function scrapeOceanParkCourts() {
 }
 
 /**
- * Discover courts from search results
- */
-async function discoverCourts(page) {
-  // Navigate to search with Ocean Park keyword
-  const searchUrl = `${config.SEARCH_URL}?keyword=${encodeURIComponent(config.SEARCH_KEYWORD)}`;
-  console.log(`   Navigating to: ${searchUrl}`);
-
-  await page.goto(searchUrl, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(2000); // Let JS render
-
-  // Find all court cards
-  const courts = await page.evaluate((selectors, patterns, metadataTag) => {
-    const results = [];
-
-    // Try multiple selectors
-    const cardSelectors = selectors.courtCard.split(',').map(s => s.trim());
-    let cards = [];
-
-    for (const selector of cardSelectors) {
-      cards = Array.from(document.querySelectorAll(selector));
-      if (cards.length > 0) break;
-    }
-
-    // If no cards found, try finding links directly
-    if (cards.length === 0) {
-      const links = Array.from(document.querySelectorAll('a[href*="/detail/"]'));
-      cards = links.map(link => link.closest('div, article, section, li')).filter(Boolean);
-    }
-
-    console.log(`Found ${cards.length} potential court cards`);
-
-    for (const card of cards) {
-      try {
-        // Extract court name
-        let name = null;
-        const nameSelectors = selectors.courtName.split(',').map(s => s.trim());
-        for (const selector of nameSelectors) {
-          const nameEl = card.querySelector(selector);
-          if (nameEl && nameEl.textContent.trim()) {
-            name = nameEl.textContent.trim();
-            break;
-          }
-        }
-
-        if (!name) {
-          // Try getting name from link text
-          const link = card.querySelector('a[href*="/detail/"]');
-          if (link) name = link.textContent.trim();
-        }
-
-        if (!name) continue;
-
-        // Check if name matches our patterns
-        const matchesPattern = patterns.some(pattern => {
-          const regex = new RegExp(pattern.source, pattern.flags);
-          return regex.test(name);
-        });
-
-        if (!matchesPattern) continue;
-
-        // Check if it's Sand Volleyball - Beach
-        const typeEl = card.querySelector(selectors.courtType);
-        if (typeEl && !typeEl.textContent.includes(metadataTag)) {
-          continue;
-        }
-
-        // Extract court ID from detail link
-        const link = card.querySelector('a[href*="/detail/"]');
-        if (!link) continue;
-
-        const href = link.getAttribute('href');
-        const idMatch = href.match(/\/detail\/(\d+)/);
-        if (!idMatch) continue;
-
-        const id = idMatch[1];
-
-        results.push({ name, id });
-
-      } catch (err) {
-        console.error('Error processing card:', err.message);
-      }
-    }
-
-    return results;
-  }, config.SELECTORS, config.COURT_NAME_PATTERNS, config.METADATA_TAG);
-
-  return courts;
-}
-
-/**
  * Scrape calendar for a specific court
  */
 async function scrapeCourtCalendar(page, court) {
   const detailUrl = `${config.ACTIVE_NET_BASE_URL}/search/detail/${court.id}`;
 
+  console.log(`   Navigating to: ${detailUrl}`);
   await page.goto(detailUrl, { waitUntil: 'networkidle' });
   await page.waitForTimeout(2000);
 
   // Extract court metadata
   const courtInfo = await page.evaluate((selectors) => {
-    const titleEl = document.querySelector(selectors.courtTitle);
-    const metadataEl = document.querySelector(selectors.courtMetadata);
+    const titleEl = document.querySelector('h1');
+    const metadataEl = document.querySelector('[class*="type"], p');
 
     return {
       name: titleEl ? titleEl.textContent.trim() : null,
       metadata: metadataEl ? metadataEl.textContent.trim() : null
     };
   }, config.SELECTORS);
+
+  console.log(`   Found court: ${courtInfo.name || court.name}`);
 
   // Determine location (North or South)
   const location = court.name.includes('North') ? 'North' : court.name.includes('South') ? 'South' : 'Unknown';
@@ -185,7 +104,10 @@ async function scrapeCourtCalendar(page, court) {
   const id = court.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
   // Scrape calendar data
+  console.log(`   Scraping calendar...`);
   const calendarData = await scrapeCalendarDays(page);
+
+  console.log(`   Found ${Object.keys(calendarData).length} dates with availability`);
 
   // Convert to dates object format
   const dates = {};
@@ -197,7 +119,7 @@ async function scrapeCourtCalendar(page, court) {
 
   return {
     id,
-    name: court.name,
+    name: courtInfo.name || court.name,
     location,
     dates
   };
@@ -207,121 +129,81 @@ async function scrapeCourtCalendar(page, court) {
  * Scrape calendar days and extract time ranges
  */
 async function scrapeCalendarDays(page) {
-  const calendarData = await page.evaluate((selectors) => {
+  const calendarData = await page.evaluate(() => {
     const data = {};
 
-    // Find calendar container
-    let calendar = document.querySelector(selectors.calendar);
+    // Find calendar - try multiple approaches
+    let calendar = document.querySelector('table');
     if (!calendar) {
-      // Try finding by table or grid
-      calendar = document.querySelector('table, [role="grid"], .calendar-grid');
+      calendar = document.querySelector('[class*="calendar"]');
+    }
+    if (!calendar) {
+      calendar = document.querySelector('[role="grid"]');
     }
 
     if (!calendar) {
-      console.log('No calendar found');
+      console.log('❌ No calendar found');
       return data;
     }
 
-    // Find all day cells
-    const dayCells = calendar.querySelectorAll('td, .calendar-day, [class*="day-cell"]');
-    console.log(`Found ${dayCells.length} calendar cells`);
+    console.log('✅ Found calendar table');
 
-    for (const cell of dayCells) {
+    // Find all table cells (calendar days)
+    const cells = calendar.querySelectorAll('td');
+    console.log(`Found ${cells.length} table cells`);
+
+    for (const cell of cells) {
       try {
-        // Extract date from cell
-        const dateText = cell.textContent;
+        const cellText = cell.textContent.trim();
 
-        // Look for date pattern (e.g., "Feb 13 2026" or just "13")
-        const dateMatch = dateText.match(/(\d{1,2})/);
-        if (!dateMatch) continue;
+        // Skip empty cells or header cells
+        if (!cellText || cellText.length < 1) continue;
 
-        const day = parseInt(dateMatch[1], 10);
+        // Look for day number (1-31)
+        const dayMatch = cellText.match(/^(\d{1,2})\b/);
+        if (!dayMatch) continue;
+
+        const day = parseInt(dayMatch[1], 10);
         if (day < 1 || day > 31) continue;
 
-        // Get current month/year from context (we'll fix this in production)
+        // Determine the date
+        // The calendar shows the current month, so we need to figure out year/month
         const now = new Date();
-        let testDate = new Date(now.getFullYear(), now.getMonth(), day);
+        let targetDate = new Date(now.getFullYear(), now.getMonth(), day);
 
-        // If day is less than today's date, it's probably next month
-        if (testDate < now) {
-          testDate = new Date(now.getFullYear(), now.getMonth() + 1, day);
+        // If the day is before today, it's probably next month
+        if (targetDate < now) {
+          targetDate = new Date(now.getFullYear(), now.getMonth() + 1, day);
         }
 
-        const dateKey = testDate.toISOString().split('T')[0];
+        const dateKey = targetDate.toISOString().split('T')[0];
 
-        // Extract time ranges from cell
+        // Extract time ranges from cell text
         const timeRanges = [];
 
-        // Look for time text (e.g., "8:00 AM - 10:00 AM")
-        const timeTexts = cell.querySelectorAll('[class*="time"], .time-range, div, span');
+        // Match patterns like "8:00 AM - 10:00 AM" or "12:30 PM - 2:00 PM"
+        const timeRangePattern = /(\d{1,2}:\d{2}\s*[AP]M)\s*[-–]\s*(\d{1,2}:\d{2}\s*[AP]M)/gi;
+        const matches = Array.from(cellText.matchAll(timeRangePattern));
 
-        for (const el of timeTexts) {
-          const text = el.textContent.trim();
-          // Match time ranges like "8:00 AM - 10:00 AM" or "12:30 PM - 2:00 PM"
-          const timeRangePattern = /(\d{1,2}:\d{2}\s*[AP]M)\s*-\s*(\d{1,2}:\d{2}\s*[AP]M)/gi;
-          const matches = text.matchAll(timeRangePattern);
-
-          for (const match of matches) {
-            timeRanges.push({
-              start: match[1].trim(),
-              end: match[2].trim()
-            });
-          }
-        }
-
-        // Also check for "X More" tooltips
-        const moreLinks = cell.querySelectorAll('a[class*="more"], [class*="more"]');
-        for (const link of moreLinks) {
-          // Check if there's a tooltip nearby or title attribute
-          const title = link.getAttribute('title') || link.getAttribute('data-title');
-          if (title) {
-            const matches = title.matchAll(/(\d{1,2}:\d{2}\s*[AP]M)\s*-\s*(\d{1,2}:\d{2}\s*[AP]M)/gi);
-            for (const match of matches) {
-              timeRanges.push({
-                start: match[1].trim(),
-                end: match[2].trim()
-              });
-            }
-          }
+        for (const match of matches) {
+          timeRanges.push({
+            start: match[1].trim(),
+            end: match[2].trim()
+          });
         }
 
         if (timeRanges.length > 0) {
           data[dateKey] = timeRanges;
+          console.log(`Date ${dateKey}: ${timeRanges.length} time ranges`);
         }
 
       } catch (err) {
-        console.error('Error processing calendar cell:', err.message);
+        console.error('Error processing cell:', err.message);
       }
     }
 
     return data;
-  }, config.SELECTORS);
-
-  // Hover over "More" links to reveal tooltips
-  try {
-    const moreLinks = await page.locator('a:has-text("More"), [class*="more"]').all();
-
-    for (const link of moreLinks) {
-      try {
-        await link.hover({ timeout: 1000 });
-        await page.waitForTimeout(500);
-
-        // Check for tooltip
-        const tooltip = await page.locator('.an-portal, [class*="tooltip"]').first();
-        if (await tooltip.isVisible({ timeout: 500 })) {
-          const tooltipText = await tooltip.textContent();
-
-          // Extract additional time ranges from tooltip
-          const matches = tooltipText.matchAll(/(\d{1,2}:\d{2}\s*[AP]M)\s*-\s*(\d{1,2}:\d{2}\s*[AP]M)/gi);
-          // Note: We'd need to associate these with the correct date, which requires more complex logic
-        }
-      } catch (err) {
-        // Tooltip might not exist, continue
-      }
-    }
-  } catch (err) {
-    console.log('Could not hover over "More" links:', err.message);
-  }
+  });
 
   return calendarData;
 }
@@ -348,6 +230,9 @@ function convertTimeRangesToSlots(timeRanges) {
     return { start, end };
   }).filter(r => r.start !== null && r.end !== null);
 
+  // Sort ranges by start time
+  availableRanges.sort((a, b) => a.start - b.start);
+
   // Generate hourly slots
   for (let hour = dayStart; hour < dayEnd; hour++) {
     const slotStart = hour;
@@ -355,8 +240,10 @@ function convertTimeRangesToSlots(timeRanges) {
 
     // Check if this hour overlaps with any available range
     const isAvailable = availableRanges.some(range => {
-      return slotStart >= range.start && slotEnd <= range.end ||
-             slotStart < range.end && slotEnd > range.start;
+      // Check if the hour slot overlaps with this availability range
+      return (slotStart >= range.start && slotStart < range.end) ||
+             (slotEnd > range.start && slotEnd <= range.end) ||
+             (slotStart <= range.start && slotEnd >= range.end);
     });
 
     // Format time

@@ -1,0 +1,13 @@
+{
+  "name": "ocean-park-scraper",
+  "version": "0.1.0",
+  "description": "Proof of concept scraper for Ocean Park volleyball court availability",
+  "type": "module",
+  "scripts": {
+    "poc": "node poc.js"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "date-fns": "^2.30.0"
+  }
+}

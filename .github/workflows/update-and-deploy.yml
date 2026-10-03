@@ -1,0 +1,68 @@
+name: Update court data and deploy
+
+on:
+  schedule:
+    # 4am and 6pm Pacific during daylight time (11:00 and 01:00 UTC).
+    # GitHub schedules run on UTC and ignore daylight saving, so in winter
+    # these land at 3am and 5pm Pacific.
+    - cron: '0 11 * * *'
+    - cron: '0 1 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'scraper/**'
+      - '.github/workflows/update-and-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Fetch court availability
+        run: node scraper/index.js
+
+      - name: Commit updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add frontend/public/data/courts.json
+          git diff --staged --quiet || (git commit -m "Update court availability data [skip ci]" && git push)
+
+      - name: Build site
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,2 +1,80 @@
-@import "tailwindcss";
-@plugin "daisyui";
+/* Layout: one centered column; header, date pill, then North/South grids of stat-style court cards (3 across, rows of 2 centered) */
+:root {
+  --bg: #efe8dc; --card: #fffaf2; --line: #e2d6c3; --fg: #2a2118; --muted: #8a7a66;
+  --accent: #1f6f8b; --accent-soft: #e1eef1;
+  --ok: #2f7d4f; --ok-soft: #e5f1e6; --res: #8a7a66; --res-soft: #f3eadb;
+  --warn: #b7791f; --warn-soft: #f7e9c8;
+  --shadow: 0 1px 2px rgb(60 40 10 / .05), 0 6px 16px rgb(60 40 10 / .07);
+  color-scheme: light;
+}
+:root { --font: "Noto Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; }
+/* Background scene, west to east like the real beach: ocean, surf, sand (content), palms, running path, bike path, grass.
+   Drawn as 8-bit pixel art on a low-res canvas scaled up with hard edges; it covers the whole page and scrolls with the courts. */
+:root { --side: max(20px, calc((100vw - 640px) / 2)); --side-r: max(44px, calc((100vw - 640px) / 2)); }
+.scene { position: absolute; left: 0; top: 0; width: 100%; z-index: -1; overflow: hidden; pointer-events: none; background: var(--bg); }
+.scene canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+.wrap { max-width: 600px; margin: 0 auto; padding-left: max(16px, calc(var(--side) + 8px)); padding-right: max(16px, calc(var(--side-r) + 8px)); padding-block: 24px 48px; display: flex; flex-direction: column; gap: 22px; }
+
+header { text-align: center; }
+h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; text-wrap: balance; }
+.subtitle { margin: 6px 0 0; font-size: 15px; color: var(--fg); }
+.updated { margin: 4px 0 0; font: italic 13px var(--font); color: var(--muted); }
+
+.picker { align-self: center; display: flex; align-items: center; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px; box-shadow: var(--shadow); }
+.picker button { width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; color: var(--fg); font-size: 13px; cursor: pointer; }
+.picker button:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+.picker button:disabled { opacity: .3; cursor: default; }
+.picker input { font: 500 15px var(--font); font-variant-numeric: tabular-nums; color: var(--fg); background: none; border: 0; padding: 6px 8px; text-align: center; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.day { margin: 0; text-align: center; font-size: 20px; font-weight: 600; }
+
+section { display: flex; flex-direction: column; gap: 12px; }
+.side { display: flex; align-items: center; gap: 10px; font: 600 12px var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.side::before, .side::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* six half-columns so rows of two can sit centered */
+.grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.cell { grid-column: span 2; min-width: 0; display: flex; }
+.cell.center { grid-column: 2 / span 2; }
+
+.court { position: relative; flex: 1; min-width: 0; overflow: hidden; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 12px 12px 49px; display: flex; flex-direction: column; }
+.court .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+.court .lbl { font: 500 12px/1.2 var(--font); color: var(--muted); }
+.court .ico { flex: none; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; }
+.court .ico svg { width: 15px; height: 15px; }
+.court.ok .ico { background: var(--ok-soft); color: var(--ok); }
+.court.res .ico { background: var(--warn-soft); color: var(--warn); }
+.court .num { font-size: 21px; font-weight: 700; line-height: 1; letter-spacing: -.02em; margin-top: -4px; font-variant-numeric: tabular-nums; }
+.court.ok .lbl { color: var(--ok); }
+.court .times { margin-top: 6px; display: flex; flex-direction: column; font: 12px/17px var(--font); color: var(--muted); min-height: calc(var(--n, 0) * 17px); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.court .spark { position: absolute; left: 0; right: 0; bottom: 18px; width: 100%; height: 24px; display: block; }
+.court .spark path.line { fill: none; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.court .hrs { position: absolute; left: 0; right: 0; bottom: 6px; height: 13px; font: 9.5px/13px var(--font); color: var(--muted); }
+.court .hrs span { position: absolute; transform: translateX(-50%); }
+/* end labels lean inward so they never touch the card's rounded edges */
+.court .hrs span:first-child { transform: translateX(-25%); }
+.court .hrs span:last-child { transform: translateX(-75%); }
+.court .spark path.tick { stroke: var(--muted); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: .7; }
+.court.ok .spark path.line { stroke: var(--ok); }
+.court.res .spark path.line { stroke: var(--accent); }
+
+.later { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 20px; text-align: center; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.later p { margin: 0; }
+a { color: var(--accent); }
+
+footer { text-align: center; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+footer p { margin: 0; }
+
+@media (max-width: 440px) {
+  .grid { gap: 8px; }
+  .court { padding: 10px 9px 47px; border-radius: 14px; }
+  .court .num { font-size: 18px; }
+  .court .ico { width: 22px; height: 22px; border-radius: 7px; }
+  .court .lbl { font-size: 11px; }
+  .court .hrs { font-size: 8.5px; }
+  .court .ico svg { width: 13px; height: 13px; }
+  .court .times { font-size: 11px; }
+}

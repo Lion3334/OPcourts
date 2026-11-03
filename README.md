@@ -4,7 +4,7 @@ A website that displays reservation status for Santa Monica beach volleyball cou
 
 ## Live Site
 
-Once deployed: `https://<your-username>.github.io/OPCourts/`
+https://opcourts.vercel.app
 
 ## Problem
 

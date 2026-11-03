@@ -7,7 +7,8 @@ Live: https://lion3334.github.io/OPcourts/ · Repo: `Lion3334/OPcourts` (public)
 - Live and working. Shipped the full redesign this session: sand stat-style court cards over an animated 8-bit Ocean Park beach scene.
 - Data: `scraper/index.js` (Node 20, no dependencies) calls the city's ActiveNet REST endpoint once per court for 14 days and writes `frontend/public/data/courts.json` (open ranges per court/date). See `docs/AVAILABILITY_API.md`.
 - Automation: `.github/workflows/update-and-deploy.yml` fetches data at 11:00 and 01:00 UTC (4am/6pm PDT; 3am/5pm in winter), commits `courts.json` if it changed, builds and deploys GitHub Pages. Also runs on pushes touching `frontend/`, `scraper/` or the workflow. `retry-failed-update.yml` re-runs its failed jobs up to 2 more times. It was added 2026-10-05 after GitHub never assigned a machine to the publish job and fresh data sat unpublished. Scheduled runs often start 4–8 hours late; the user is OK with that for now.
-- Frontend: React + Vite (`frontend/`), plain CSS, `base: '/OPcourts/'` (case matters).
+- Frontend: React + Vite (`frontend/`), plain CSS. `vite.config.js` sets `base` to `/` on Vercel (it sets `VERCEL` during builds) and `/OPcourts/` (case matters) everywhere else, i.e. GitHub Pages.
+- Vercel: the project's Root Directory is `frontend` (Vite is auto-detected; build `npm run build`, output `dist`). Vercel redeploys on every push to `main`, including the workflow's data commits, which is why those no longer say `[skip ci]` (Vercel skips commits that do). The GitHub Pages deploy still runs in the workflow until the Vercel site is confirmed working, then the Pages steps get removed.
 
 ## UI (locked — every detail chosen by the user; ask before changing)
 - Hand-written CSS in `frontend/src/index.css` on the `:root` tokens (sand palette). No Tailwind or daisyUI; never create tailwind.config.js.

@@ -44,7 +44,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add frontend/public/data/courts.json
-          git diff --staged --quiet || (git commit -m "Update court availability data [skip ci]" && git push)
+          # No [skip ci] here: Vercel skips commits that contain it, and it needs this push to redeploy with the new data.
+          # Pushes made with the workflow's own token don't start another workflow run, so this can't loop.
+          git diff --staged --quiet || (git commit -m "Update court availability data" && git push)
 
       - name: Build site
         working-directory: frontend

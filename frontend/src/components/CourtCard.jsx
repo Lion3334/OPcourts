@@ -1,9 +1,9 @@
 import { fmtRange } from '../availability';
 
 // Day timeline drawn like a sparkline: low when open, raised while reserved.
-// It covers 8am–5pm only, inset 15% from each card edge so the rounded corners don't hide the ends.
-const T0 = 480, T1 = 1020;
-const TICKS = [[480, '8am'], [720, '12pm'], [1020, '5pm']];
+// It covers 7am–5pm only, inset 15% from each card edge so the rounded corners don't hide the ends.
+const T0 = 420, T1 = 1020;
+const TICKS = [[420, '7am'], [720, '12pm'], [1020, '5pm']];
 const X = m => 15 + ((m - T0) / (T1 - T0)) * 70;
 const LOW = 20, HIGH = 6;
 

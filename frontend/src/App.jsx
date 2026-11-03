@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import DatePicker from './components/DatePicker';
 import CourtCard from './components/CourtCard';
+import WeatherStatus from './components/WeatherStatus';
 import { sideHours, reserved, longDate } from './availability';
+import { fetchWeather } from './weather';
 import { startScene } from './scene';
 
 const PORTAL = 'https://anc.apm.activecommunities.com/santamonicarecreation/reservation/landing';
@@ -18,6 +20,7 @@ function App() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [weather, setWeather] = useState(null);
   const sceneRef = useRef(null), canvasRef = useRef(null), wrapRef = useRef(null);
 
   useEffect(() => {
@@ -29,6 +32,9 @@ function App() {
       .then(setData)
       .catch(err => setError(err.message));
   }, []);
+
+  // The forecast is a bonus: if it fails the page just goes without the weather box.
+  useEffect(() => { fetchWeather().then(setWeather).catch(() => setWeather('error')); }, []);
 
   useEffect(() => startScene(canvasRef.current, sceneRef.current, wrapRef.current), []);
 
@@ -62,6 +68,7 @@ function App() {
         <DatePicker selected={day} first={first} last={last} onChange={setSelected} />
         <main style={{ display: 'flex', flexDirection: 'column', gap: 22, '--n': lines }}>
           <h2 className="day">{longDate(day)}</h2>
+          <WeatherStatus weather={weather} day={day} />
           {day > last ? (
             <div className="later">
               <p><strong>This site shows the next two weeks, through {longDate(last, { month: 'long', day: 'numeric' })}.</strong></p>

@@ -1,7 +1,7 @@
 // Forecast for the courts: fetched from Open-Meteo (free, no key) and split into three time blocks per day.
 
-// Ocean Park, Santa Monica (zip 90405). Approximate point; swap in the exact coordinates when known.
-const LAT = 34.005, LON = -118.485;
+// Ocean Park courts, Santa Monica (zip 90405), the exact point from the user's Google Maps pin.
+const LAT = 34.00195345429915, LON = -118.48986676222847;
 
 export const BLOCKS = [
   { key: 'morn', label: 'Morn.', from: 7, to: 11 },

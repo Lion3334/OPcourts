@@ -3,8 +3,8 @@
 Public site showing reservations for the 24 Ocean Park beach volleyball courts (Santa Monica), 2 weeks out.
 Live: https://opcourts.vercel.app · Repo: `Lion3334/OPcourts` (public) · Unrelated to the eBay projects in `~/ClaudeCode`.
 
-## Current status (2026-10-03)
-- Live and working. Shipped the full redesign this session: sand stat-style court cards over an animated 8-bit Ocean Park beach scene.
+## Current status (2026-11-21)
+- Live and working. Shipped this session (PRs #1 and #2, merged to `main`): phone-only "Scan to Share" QR code, shorter header with a relative "Last updated", one-line date picker, `?date=` share links, Vercel Analytics, and a "moved" message on the old GitHub Pages site. The user checked on their phone that the page loads and the date picker works, and said it looks good.
 - Data: `scraper/index.js` (Node 20, no dependencies) calls the city's ActiveNet REST endpoint once per court for 14 days and writes `frontend/public/data/courts.json` (open ranges per court/date). See `docs/AVAILABILITY_API.md`.
 - Automation: `.github/workflows/update-and-deploy.yml` fetches data at 11:00 and 01:00 UTC (4am/6pm PDT; 3am/5pm in winter), and commits `courts.json` if it changed. It no longer builds or deploys: the site moved from GitHub Pages to Vercel in November 2026, and the Pages steps and `retry-failed-update.yml` (which only retried the Pages publish) were removed. Also runs on pushes touching `scraper/` or the workflow. Scheduled runs often start 4–8 hours late; the user is OK with that for now.
 - Frontend: React + Vite (`frontend/`), plain CSS. `vite.config.js` sets `base` to `/` on Vercel (it sets `VERCEL` during builds) and `/OPcourts/` everywhere else (a leftover from GitHub Pages; harmless, so local `npm run dev` lives at `/OPcourts/`).
@@ -28,12 +28,16 @@ Live: https://opcourts.vercel.app · Repo: `Lion3334/OPcourts` (public) · Unrel
 - Read availability from the city's REST API, not by scraping the web page with a browser.
 - Hosted on Vercel (free tier), deploying from `main`. The repo stays public. GitHub Pages was dropped in favor of Vercel.
 - 14-day window; data updates twice a day.
-- Design workflow: iterate on an HTML mockup artifact (https://claude.ai/artifact/KQBRYBz3GStcd9PvsKVCD8), then port to the real site when the user says "ship it".
+- Design workflow: show mockups first and port to the real site only when the user approves. Mockup artifacts: original redesign https://claude.ai/artifact/KQBRYBz3GStcd9PvsKVCD8, QR code and header https://claude.ai/artifact/TExbmvrbuun4ibEbHJVPb4. Real screenshots of a throwaway copy of the site, at phone width, worked well.
+- Optimize for phones first; that is how nearly everyone uses the site.
+- The QR code is phone-only and always opens the base page. The old GitHub page shows a message with a button and does not redirect.
 
 ## Open items
 - On desktop the tall vertical Perry's sign leaves room for only one row of umbrellas (offered to tighten the sign or switch back to a horizontal sign on wide screens; no answer).
 - GitHub Actions warns that its standard actions use deprecated Node 20. Nothing is broken.
-- `README.md` still has a placeholder site URL.
+- `README.md` is out of date (says 28 days ahead and hosted on GitHub Pages).
+- On 320px-wide phones the court cards and weather box are cramped (older than this session's work).
+- Nobody has confirmed the date links with an iPhone's real share button (tested in headless Chrome only).
 
 ## Tried and dropped
 - Playwright browser scraper: never produced real data (all slots "unknown"); replaced by the REST endpoint.
@@ -42,8 +46,13 @@ Live: https://opcourts.vercel.app · Repo: `Lion3334/OPcourts` (public) · Unrel
 - Fonts: Handjet (user: "yuck"), DM Sans/JetBrains Mono. Noto Sans won.
 - "Pacific Ocean" / "Park" labels in the scene; towers along the shoreline (moved beside the cards).
 
+- QR code beside the date picker, and a Share button with no visible code: mocked up and rejected in favor of beside the title. The "Check availability up to 2 weeks" subtitle and an absolute "Last Update: mm/dd h:mm" were dropped too.
+
 ## Key context
+- Keep automated checks of the live site light. A burst of headless-Chrome and curl requests on 2026-11-21 set off Vercel's Security Checkpoint (403 for automated requests, even from another network). Test on a local build, and confirm deploys with `gh api repos/Lion3334/OPcourts/commits/main/status`.
+- The `github-pages` environment only accepts deploys from `main`, so changes to the moved notice can't be tested before merging.
+- Browsers can't reword a native date box, which is why the date label sits under an invisible one.
 - The city API is anonymous (no login or key). One request returns up to ~6 weeks for one court. Facility IDs are in `scraper/index.js`.
 - Courts are "not reservable online"; booking goes through Santa Monica rec staff. The note saying so was removed from the page at the user's request.
-- Headless Chrome won't render narrower than ~500px. To check a real phone width, load the page inside a 390px-wide iframe.
+- Headless Chrome won't render narrower than ~500px from `--window-size`. To check real phone widths, use DevTools `Emulation.setDeviceMetricsOverride` (or a 390px-wide iframe). The user's phone is roughly 414px wide; also check 375 and 393.
 - The user is non-technical. Explain commands in plain English, and confirm before outward-facing steps (pushing, changing repo visibility).

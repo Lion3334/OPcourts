@@ -3,7 +3,7 @@ import DatePicker from './components/DatePicker';
 import CourtCard from './components/CourtCard';
 import Share from './components/Share';
 import WeatherStatus from './components/WeatherStatus';
-import { sideHours, reserved, longDate, ago } from './availability';
+import { sideHours, reserved, longDate, shiftDate, ago } from './availability';
 import { fetchWeather } from './weather';
 import { startScene } from './scene';
 
@@ -17,10 +17,16 @@ const LAYOUT = {
 
 const todayLA = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 
+// A shared link carries the day being viewed (?date=2026-11-23). Past or bad dates are ignored, which leaves the base page.
+function dateFromUrl() {
+  const d = new URLSearchParams(location.search).get('date');
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) && d > todayLA() && shiftDate(d, 0) === d ? d : null;
+}
+
 function App() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState(dateFromUrl);
   const [weather, setWeather] = useState(null);
   const [now, setNow] = useState(Date.now);
   const sceneRef = useRef(null), canvasRef = useRef(null), wrapRef = useRef(null);
@@ -43,6 +49,14 @@ function App() {
     const t = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(t);
   }, []);
+
+  // Keep the address on the day being viewed so the phone's share button sends it. Today is the plain address.
+  useEffect(() => {
+    const url = new URL(location.href);
+    if (selected > todayLA()) url.searchParams.set('date', selected);
+    else url.searchParams.delete('date');
+    history.replaceState(null, '', url);
+  }, [selected]);
 
   useEffect(() => startScene(canvasRef.current, sceneRef.current, wrapRef.current), []);
 

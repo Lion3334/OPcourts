@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import DatePicker from './components/DatePicker';
 import CourtCard from './components/CourtCard';
+import Share from './components/Share';
 import WeatherStatus from './components/WeatherStatus';
-import { sideHours, reserved, longDate } from './availability';
+import { sideHours, reserved, longDate, ago } from './availability';
 import { fetchWeather } from './weather';
 import { startScene } from './scene';
 
@@ -21,6 +22,7 @@ function App() {
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [weather, setWeather] = useState(null);
+  const [now, setNow] = useState(Date.now);
   const sceneRef = useRef(null), canvasRef = useRef(null), wrapRef = useRef(null);
 
   useEffect(() => {
@@ -35,6 +37,12 @@ function App() {
 
   // The forecast is a bonus: if it fails the page just goes without the weather box.
   useEffect(() => { fetchWeather().then(setWeather).catch(() => setWeather('error')); }, []);
+
+  // Keeps "Last updated" right while the page stays open.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => startScene(canvasRef.current, sceneRef.current, wrapRef.current), []);
 
@@ -59,15 +67,12 @@ function App() {
       const r = res[c.side + c.label], h = hours[c.side];
       return r.length === 1 && r[0][0] === h[0] && r[0][1] === h[1] ? 1 : r.length;
     }));
-    updated = new Date(data.lastUpdated).toLocaleString('en-US', {
-      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles',
-    });
+    updated = ago(now - new Date(data.lastUpdated));
 
     content = (
       <>
         <DatePicker selected={day} first={first} last={last} onChange={setSelected} />
         <main style={{ display: 'flex', flexDirection: 'column', gap: 22, '--n': lines }}>
-          <h2 className="day">{longDate(day)}</h2>
           <WeatherStatus weather={weather} day={day} />
           {day > last ? (
             <div className="later">
@@ -112,9 +117,11 @@ function App() {
 
       <div className="wrap" ref={wrapRef}>
         <header>
-          <h1>OP Court Availability</h1>
-          <p className="subtitle">Check availability up to 2 weeks from now</p>
-          {updated && <p className="updated">Availability last updated: {updated}</p>}
+          <div>
+            <h1>OP Court Availability</h1>
+            {updated && <p className="updated">Last updated: {updated}</p>}
+          </div>
+          <Share />
         </header>
         {content}
         <footer>

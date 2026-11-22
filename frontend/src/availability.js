@@ -50,3 +50,13 @@ export const shiftDate = (d, n) => {
 
 export const longDate = (d, opts = { weekday: 'long', month: 'long', day: 'numeric' }) =>
   new Date(d + 'T12:00:00').toLocaleDateString('en-US', opts);
+
+// How long ago something happened, in ms: "just now", "25 mins ago", "9 hours ago", "3 days ago", then "A long time ago" past 7 days.
+export function ago(ms) {
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'just now';
+  const hours = Math.floor(mins / 60), days = Math.floor(hours / 24);
+  if (days > 7) return 'A long time ago';
+  const [n, unit] = days ? [days, 'day'] : hours ? [hours, 'hour'] : [mins, 'min'];
+  return `${n} ${unit}${n === 1 ? '' : 's'} ago`;
+}
